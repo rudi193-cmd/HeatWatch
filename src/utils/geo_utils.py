@@ -2,6 +2,11 @@ from __future__ import annotations
 
 import numpy as np
 
+# Tolerance for floating-point error when converting a geographic offset into an
+# integer pixel index (see clip_array_to_bounds). Far smaller than one pixel,
+# large enough to absorb IEEE-754 rounding of products like 0.8 * 10.
+_PIXEL_EPS = 1e-9
+
 
 def bounds_to_bbox(
     min_lon: float, min_lat: float, max_lon: float, max_lat: float
@@ -97,10 +102,17 @@ def clip_array_to_bounds(
     lon_range = array_bounds["max_lon"] - array_bounds["min_lon"]
     lat_range = array_bounds["max_lat"] - array_bounds["min_lat"]
 
-    col_start = int((clip_bounds["min_lon"] - array_bounds["min_lon"]) / lon_range * cols)
-    col_end = int((clip_bounds["max_lon"] - array_bounds["min_lon"]) / lon_range * cols)
-    row_start = int((array_bounds["max_lat"] - clip_bounds["max_lat"]) / lat_range * rows)
-    row_end = int((array_bounds["max_lat"] - clip_bounds["min_lat"]) / lat_range * rows)
+    # Snap to the nearest pixel within a small tolerance before truncating.
+    # Plain int() truncation turns a mathematically-integer index that floating
+    # point stores as e.g. 7.999999999 into 7, shifting the clip window by a
+    # whole pixel. _PIXEL_EPS absorbs that representation error.
+    def _index(value: float) -> int:
+        return int(value + _PIXEL_EPS)
+
+    col_start = _index((clip_bounds["min_lon"] - array_bounds["min_lon"]) / lon_range * cols)
+    col_end = _index((clip_bounds["max_lon"] - array_bounds["min_lon"]) / lon_range * cols)
+    row_start = _index((array_bounds["max_lat"] - clip_bounds["max_lat"]) / lat_range * rows)
+    row_end = _index((array_bounds["max_lat"] - clip_bounds["min_lat"]) / lat_range * rows)
 
     col_start = max(0, col_start)
     col_end = min(cols, col_end)

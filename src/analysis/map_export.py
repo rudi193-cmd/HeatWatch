@@ -5,6 +5,9 @@ from pathlib import Path
 
 import numpy as np
 
+# Color used for pixels with no valid NDVI value (NaN / no-data).
+NODATA_COLOR = "#999999"
+
 # NDVI color legend breakpoints and their corresponding colors
 # Based on standard remote sensing classification
 NDVI_LEGEND = [
@@ -24,8 +27,13 @@ def ndvi_to_color(value: float) -> str:
         value: NDVI value in range [-1, 1].
 
     Returns:
-        Hex color string (e.g. '#91cf60').
+        Hex color string (e.g. '#91cf60'). NaN / no-data values return
+        NODATA_COLOR rather than being misclassified as dense vegetation.
     """
+    # NaN compares False against every breakpoint, so guard it explicitly;
+    # otherwise no-data pixels fall through to the dense-canopy color.
+    if value != value:
+        return NODATA_COLOR
     for entry in NDVI_LEGEND:
         if entry["min"] <= value < entry["max"]:
             return entry["color"]
@@ -102,7 +110,7 @@ def export_ndvi_map(
         grid_html += "<tr>"
         for c in range(cols):
             val = float(ndvi[r, c])
-            color = "#999999" if np.isnan(val) else ndvi_to_color(val)
+            color = NODATA_COLOR if np.isnan(val) else ndvi_to_color(val)
             grid_html += (
                 f'<td style="background:{color};width:{cell_size}px;'
                 f'height:{cell_size}px;" title="NDVI={val:.3f}"></td>'

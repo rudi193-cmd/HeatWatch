@@ -6,7 +6,14 @@ from src.analysis.map_export import (
     build_ndvi_legend_html,
     export_ndvi_map,
     NDVI_LEGEND,
+    NODATA_COLOR,
 )
+
+
+def test_ndvi_to_color_nan_is_nodata():
+    # No-data pixels must not be colored as dense vegetation.
+    assert ndvi_to_color(float("nan")) == NODATA_COLOR
+    assert ndvi_to_color(np.float32("nan")) == NODATA_COLOR
 
 
 def test_ndvi_to_color_water():
